@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_URL } from './config';
+
+const API_URL = 'https://nexus-tools-3.onrender.com';
 // --- TYPES ---
 type ToolMode = 
   | 'img-to-pdf' | 'pdf-merger' | 'pdf-splitter' | 'pdf-rotator'
