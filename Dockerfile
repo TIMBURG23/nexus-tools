@@ -2,11 +2,13 @@
 FROM python:3.10-slim
 
 # Install system dependencies (The heavy lifters)
+# FIXED: Replaced 'libgl1-mesa-glx' with 'libgl1' and added 'libglib2.0-0'
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     ffmpeg \
     poppler-utils \
-    libgl1-mesa-glx \
+    libgl1 \
+    libglib2.0-0 \
     default-jre \
     && rm -rf /var/lib/apt/lists/*
 
