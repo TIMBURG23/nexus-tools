@@ -1,8 +1,8 @@
 # Use an official Python runtime as a parent image
 FROM python:3.10-slim
 
-# Install system dependencies (The heavy lifters)
-# FIXED: Replaced 'libgl1-mesa-glx' with 'libgl1' and added 'libglib2.0-0'
+# Install system dependencies AND build tools
+# Added: build-essential, gcc, g++, python3-dev (Required for compiling PDF libraries)
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     ffmpeg \
@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
     default-jre \
+    build-essential \
+    gcc \
+    g++ \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
