@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// ✅ YOUR EXACT BACKEND URL - HARDCODED
 const API_URL = 'https://nexus-tools-3.onrender.com';
+
 // --- TYPES ---
 type ToolMode = 
   | 'img-to-pdf' | 'pdf-merger' | 'pdf-splitter' | 'pdf-rotator'
@@ -440,7 +442,7 @@ const triggerDownload = (blob: Blob, filename: string) => {
 };
 
 // ==========================================
-// TOOL IMPLEMENTATIONS
+// TOOL IMPLEMENTATIONS - ALL USING STRING CONCATENATION
 // ==========================================
 
 function ImgToPdfTool({ showToast }: any) {
@@ -452,7 +454,7 @@ function ImgToPdfTool({ showToast }: any) {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     try {
-      const res = await fetch('${API_URL}/api/img-to-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/img-to-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'images.pdf');
       showToast('PDF created successfully! 🎉', 'success');
@@ -481,7 +483,7 @@ function PdfMergerTool({ showToast }: any) {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     try {
-      const res = await fetch('/${API_URL}api/merge-pdfs', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/merge-pdfs', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'merged.pdf');
       showToast('PDFs merged successfully! 🎉', 'success');
@@ -515,7 +517,7 @@ function PdfSplitterTool({ showToast }: any) {
     fd.append('start_page', start.toString());
     fd.append('end_page', end.toString());
     try {
-      const res = await fetch('${API_URL}/api/split-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/split-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'split.pdf');
       showToast('PDF split successfully! ✂️', 'success');
@@ -556,7 +558,7 @@ function CompressPdfTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('quality', quality);
     try {
-      const res = await fetch('${API_URL}/api/compress-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/compress-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'compressed.pdf');
       showToast('PDF compressed! 📦', 'success');
@@ -597,7 +599,7 @@ function PdfRotatorTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('rotation', rot.toString());
     try {
-      const res = await fetch('${API_URL}/api/rotate-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/rotate-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'rotated.pdf');
       showToast('PDF rotated! 🔄', 'success');
@@ -646,7 +648,7 @@ function OrganizePdfTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('page_order', pageOrder);
     try {
-      const res = await fetch('${API_URL}/api/organize-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/organize-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'organized.pdf');
       showToast('PDF reorganized! 📋', 'success');
@@ -688,7 +690,7 @@ function PdfToWordTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/pdf-to-word', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/pdf-to-word', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'document.docx');
       showToast('Converted to Word! 📝', 'success');
@@ -717,7 +719,7 @@ function PdfToPptTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch(`${API_URL}/api/pdf-to-ppt`, { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/pdf-to-ppt', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'presentation.pptx');
       showToast('Converted to PowerPoint! 📊', 'success');
@@ -746,7 +748,7 @@ function PdfToExcelTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/pdf-to-excel', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/pdf-to-excel', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'data.xlsx');
       showToast('Extracted to Excel! 📈', 'success');
@@ -775,7 +777,7 @@ function PdfToJpgTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/pdf-to-jpg', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/pdf-to-jpg', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'images.zip');
       showToast('Images extracted! 🖼️', 'success');
@@ -804,7 +806,7 @@ function WordToPdfTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/word-to-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/word-to-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'document.pdf');
       showToast('Converted to PDF! 📄', 'success');
@@ -833,7 +835,7 @@ function PptToPdfTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/ppt-to-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/ppt-to-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'slides.pdf');
       showToast('Converted to PDF! 📄', 'success');
@@ -862,7 +864,7 @@ function ExcelToPdfTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/excel-to-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/excel-to-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'spreadsheet.pdf');
       showToast('Converted to PDF! 📄', 'success');
@@ -889,7 +891,7 @@ function HtmlToPdfTool({ showToast }: any) {
     if(!url) return;
     setL(true);
     try {
-      const res = await fetch('${API_URL}/api/html-to-pdf', { 
+      const res = await fetch(API_URL + '/api/html-to-pdf', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
@@ -927,7 +929,7 @@ function LockPdfTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('password', pass);
     try {
-      const res = await fetch(`${API_URL}/api/lock-pdf`, { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/lock-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'protected.pdf');
       showToast('PDF locked! 🔐', 'success');
@@ -965,7 +967,7 @@ function UnlockPdfTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('password', pass);
     try {
-      const res = await fetch('${API_URL}/api/unlock-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/unlock-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'unlocked.pdf');
       showToast('PDF unlocked! 🔓', 'success');
@@ -1003,7 +1005,7 @@ function WatermarkTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('text', text);
     try {
-      const res = await fetch('${API_URL}/api/watermark-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/watermark-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'watermarked.pdf');
       showToast('Watermark applied! 💧', 'success');
@@ -1040,7 +1042,7 @@ function RedactPdfTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('text_to_redact', text);
     try {
-      const res = await fetch('${API_URL}/api/redact-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/redact-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'redacted.pdf');
       showToast('Text redacted! 🖍️', 'success');
@@ -1081,7 +1083,7 @@ function PageNumbersTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('position', position);
     try {
-      const res = await fetch('/api/add-page-numbers', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/add-page-numbers', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'numbered.pdf');
       showToast('Page numbers added! 🔢', 'success');
@@ -1123,7 +1125,7 @@ function OcrPdfTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/ocr-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/ocr-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'searchable.pdf');
       showToast('OCR completed! 👁️', 'success');
@@ -1157,7 +1159,7 @@ function ComparePdfTool({ showToast }: any) {
     fd.append('file1', file1);
     fd.append('file2', file2);
     try {
-      const res = await fetch('${API_URL}/api/compare-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/compare-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'comparison.pdf');
       showToast('Comparison complete! ⚖️', 'success');
@@ -1201,7 +1203,7 @@ function CropPdfTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('margin', margin.toString());
     try {
-      const res = await fetch('${API_URL}/api/crop-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/crop-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'cropped.pdf');
       showToast('PDF cropped! ✂️', 'success');
@@ -1241,7 +1243,7 @@ function RepairPdfTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/repair-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/repair-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'repaired.pdf');
       showToast('PDF repaired! 🔧', 'success');
@@ -1273,7 +1275,7 @@ function PdfTextTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/extract-text', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/extract-text', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'content.txt');
       showToast('Text extracted! 📑', 'success');
@@ -1306,7 +1308,7 @@ function PdfMetaTool({ showToast }: any) {
     fd.append('title', title);
     fd.append('author', author);
     try {
-      const res = await fetch('${API_URL}/api/edit-pdf-metadata', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/edit-pdf-metadata', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'tagged.pdf');
       showToast('Metadata updated! 🏷️', 'success');
@@ -1340,9 +1342,9 @@ function TranscoderTool({ showToast }: any) {
     fd.append('file', file);
     fd.append('target_format', fmt);
     try {
-      const res = await fetch('${API_URL}/api/convert-format', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/convert-format', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
-      triggerDownload(await res.blob(), `converted.${fmt.toLowerCase()}`);
+      triggerDownload(await res.blob(), 'converted.' + fmt.toLowerCase());
       showToast('Image converted! 🎨', 'success');
     } catch { showToast('Conversion failed', 'error'); } finally { setL(false); }
   };
@@ -1385,7 +1387,7 @@ function ImageResizerTool({ showToast }: any) {
     fd.append('width', w.toString());
     fd.append('height', h.toString());
     try {
-      const res = await fetch('${API_URL}/api/resize-image', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/resize-image', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'resized.png');
       showToast('Image resized! 📐', 'success');
@@ -1424,7 +1426,7 @@ function MetadataWiperTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/clean-metadata', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/clean-metadata', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'clean.png');
       showToast('Metadata removed! 🧹', 'success');
@@ -1457,7 +1459,7 @@ function ExtractAudioTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/extract-audio', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/extract-audio', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'audio.mp3');
       showToast('Audio extracted! 🎵', 'success');
@@ -1490,7 +1492,7 @@ function VideoToGifTool({ showToast }: any) {
     fd.append('start_time', start.toString());
     fd.append('end_time', end.toString());
     try {
-      const res = await fetch('${API_URL}/api/video-to-gif', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/video-to-gif', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'animation.gif');
       showToast('GIF created! 🎞️', 'success');
@@ -1534,10 +1536,10 @@ function SpreadsheetTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const endpoint = mode === 'csv-to-excel' ? 'api/csv-to-excel' : 'api/excel-to-csv';
+      const endpoint = mode === 'csv-to-excel' ? '/api/csv-to-excel' : '/api/excel-to-csv';
       const ext = mode === 'csv-to-excel' ? 'data.xlsx' : 'data.csv';
       
-      const res = await fetch(`${API_URL}/${endpoint}`, { method: 'POST', body: fd });
+      const res = await fetch(API_URL + endpoint, { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), ext);
       showToast('Converted successfully! 📊', 'success');
@@ -1592,7 +1594,7 @@ function DocxToPdfTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/docx-to-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/docx-to-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'document.pdf');
       showToast('Converted to PDF! 📄', 'success');
@@ -1621,7 +1623,7 @@ function MdToPdfTool({ showToast }: any) {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch('${API_URL}/api/md-to-pdf', { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/md-to-pdf', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'markdown.pdf');
       showToast('Converted to PDF! 📄', 'success');
@@ -1650,7 +1652,7 @@ function ZipCreatorTool({ showToast }: any) {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     try {
-      const res = await fetch(`${API_URL}/api/create-zip`, { method: 'POST', body: fd });
+      const res = await fetch(API_URL + '/api/create-zip', { method: 'POST', body: fd });
       if(!res.ok) throw new Error();
       triggerDownload(await res.blob(), 'archive.zip');
       showToast('ZIP created! 📦', 'success');
@@ -1668,21 +1670,3 @@ function ZipCreatorTool({ showToast }: any) {
     </ToolLayout>
   );
 }
-
-// Add styles to your global CSS
-const styles = `
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-  .animate-shimmer {
-    animation: shimmer 2s infinite;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-`;
