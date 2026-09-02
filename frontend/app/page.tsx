@@ -456,10 +456,15 @@ function ImgToPdfTool({ showToast }: any) {
     files.forEach(f => fd.append('files', f));
     try {
       const res = await fetch(API_URL + '/api/img-to-pdf', { method: 'POST', body: fd });
-      if(!res.ok) throw new Error();
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.detail || 'The processing service could not convert this image.');
+      }
       triggerDownload(await res.blob(), 'images.pdf');
       showToast('PDF created successfully! 🎉', 'success');
-    } catch { showToast('Failed to create PDF', 'error'); } finally { setL(false); }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to create PDF', 'error');
+    } finally { setL(false); }
   };
 
   return (

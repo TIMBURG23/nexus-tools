@@ -79,11 +79,43 @@ app.add_middleware(
 @app.post("/api/img-to-pdf")
 async def img_to_pdf(files: List[UploadFile] = File(...)):
     if not files: raise HTTPException(400, "No files uploaded")
+    prepared_images = []
     try:
-        image_data = [await f.read() for f in files]
-        pdf_bytes = img2pdf.convert(image_data)
-        return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=converted.pdf"})
-    except Exception as e: raise HTTPException(500, str(e))
+        for uploaded_file in files:
+            image = Image.open(io.BytesIO(await uploaded_file.read()))
+            image.load()
+
+            # PDF pages cannot retain indexed colour or alpha channels reliably.
+            # Composite transparent images onto white and normalize everything to RGB.
+            if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
+                rgba_image = image.convert("RGBA")
+                white_background = Image.new("RGBA", rgba_image.size, "white")
+                white_background.alpha_composite(rgba_image)
+                image = white_background.convert("RGB")
+            else:
+                image = image.convert("RGB")
+
+            prepared_images.append(image)
+
+        output = io.BytesIO()
+        first_image, *remaining_images = prepared_images
+        first_image.save(
+            output,
+            format="PDF",
+            save_all=True,
+            append_images=remaining_images,
+            resolution=100.0,
+        )
+        return Response(
+            content=output.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=converted.pdf"},
+        )
+    except Exception as e:
+        raise HTTPException(422, f"Unable to convert one or more images: {str(e)}")
+    finally:
+        for image in prepared_images:
+            image.close()
 
 @app.post("/api/merge-pdfs")
 async def merge_pdfs(files: List[UploadFile] = File(...)):
