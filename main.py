@@ -61,6 +61,9 @@ from pygments.formatters import HtmlFormatter
 import pandas as pd
 import zipfile
 import hashlib
+import subprocess
+import shutil
+from pathlib import Path
 
 app = FastAPI()
 
@@ -166,8 +169,9 @@ async def compress_pdf(file: UploadFile = File(...), quality: str = Form("medium
         writer = PdfWriter()
         
         for page in reader.pages:
-            page.compress_content_streams()
             writer.add_page(page)
+            # pypdf can only compress a page after it belongs to this writer.
+            writer.pages[-1].compress_content_streams()
         
         # Set compression level based on quality
         if quality == "high":
@@ -299,18 +303,19 @@ async def pdf_to_ppt(file: UploadFile = File(...)):
 async def pdf_to_excel(file: UploadFile = File(...)):
     """Extract tables from PDF to Excel"""
     try:
-        import tabula
-        
-        # Save PDF temporarily
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(await file.read())
-            pdf_path = tmp.name
-        
-        # Extract tables
-        tables = tabula.read_pdf(pdf_path, pages='all', multiple_tables=True)
-        
+        import pdfplumber
+
+        pdf_bytes = await file.read()
+        tables = []
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page_number, page in enumerate(pdf.pages, start=1):
+                for table_number, rows in enumerate(page.extract_tables(), start=1):
+                    if rows and len(rows) > 1:
+                        header = [str(value or f"Column {index + 1}") for index, value in enumerate(rows[0])]
+                        tables.append(pd.DataFrame(rows[1:], columns=header))
+
         if not tables:
-            raise HTTPException(400, "No tables found in PDF")
+            raise HTTPException(422, "No structured tables were detected in this PDF")
         
         # Save to Excel
         excel_bytes = io.BytesIO()
@@ -319,15 +324,15 @@ async def pdf_to_excel(file: UploadFile = File(...)):
                 sheet_name = f'Table_{i+1}'
                 table.to_excel(writer, sheet_name=sheet_name, index=False)
         
-        os.remove(pdf_path)
-        
         return Response(
             content=excel_bytes.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=data.xlsx"}
         )
+    except HTTPException:
+        raise
     except ImportError:
-        raise HTTPException(500, "tabula-py not installed. Run: pip install tabula-py")
+        raise HTTPException(500, "PDF table extraction is unavailable")
     except Exception as e:
         raise HTTPException(500, f"Extraction failed: {str(e)}")
 
@@ -394,36 +399,43 @@ async def word_to_pdf(file: UploadFile = File(...)):
 @app.post("/api/ppt-to-pdf")
 async def ppt_to_pdf(file: UploadFile = File(...)):
     """Convert PowerPoint to PDF"""
+    source_path = None
+    output_dir = None
     try:
-        from pptx import Presentation
-        
-        # This is a simplified version - real conversion requires more complex rendering
-        prs = Presentation(io.BytesIO(await file.read()))
-        
-        # Create PDF with slide count info
-        pdf_buffer = io.BytesIO()
-        c = canvas.Canvas(pdf_buffer, pagesize=letter)
-        
-        c.drawString(100, 750, f"PowerPoint Presentation - {len(prs.slides)} slides")
-        c.drawString(100, 730, "Note: Full PPT to PDF conversion requires LibreOffice/external service")
-        
-        y = 700
-        for i, slide in enumerate(prs.slides):
-            c.drawString(100, y, f"Slide {i+1}")
-            y -= 20
-            if y < 100:
-                c.showPage()
-                y = 750
-        
-        c.save()
-        
+        libreoffice = shutil.which("libreoffice") or shutil.which("soffice")
+        if not libreoffice:
+            raise HTTPException(503, "PowerPoint conversion service is not installed")
+
+        suffix = os.path.splitext(file.filename or "presentation.pptx")[1] or ".pptx"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as source:
+            source.write(await file.read())
+            source_path = source.name
+        output_dir = tempfile.mkdtemp(prefix="nexus-ppt-")
+        process = subprocess.run(
+            [libreoffice, "--headless", "--convert-to", "pdf", "--outdir", output_dir, source_path],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        pdf_path = os.path.join(output_dir, Path(source_path).stem + ".pdf")
+        if process.returncode != 0 or not os.path.exists(pdf_path):
+            raise HTTPException(500, process.stderr.strip() or "PowerPoint rendering failed")
+        with open(pdf_path, "rb") as converted:
+            pdf_bytes = converted.read()
         return Response(
-            content=pdf_buffer.getvalue(),
+            content=pdf_bytes,
             media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=slides.pdf"}
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(500, f"Conversion requires LibreOffice or external service: {str(e)}")
+        raise HTTPException(500, f"PowerPoint conversion failed: {str(e)}")
+    finally:
+        if source_path and os.path.exists(source_path):
+            os.remove(source_path)
+        if output_dir:
+            shutil.rmtree(output_dir, ignore_errors=True)
 
 @app.post("/api/excel-to-pdf")
 async def excel_to_pdf(file: UploadFile = File(...)):
@@ -553,20 +565,27 @@ async def watermark_pdf(file: UploadFile = File(...), text: str = Form(...)):
 async def redact_pdf(file: UploadFile = File(...), text_to_redact: str = Form(...)):
     """Redact sensitive text from PDF"""
     try:
-        reader = PdfReader(io.BytesIO(await file.read()))
-        writer = PdfWriter()
-        
-        for page in reader.pages:
-            # Extract text and find positions (simplified - real redaction needs coordinates)
-            content = page.extract_text()
-            if text_to_redact.lower() in content.lower():
-                # Add redaction annotation (simplified)
-                pass
-            writer.add_page(page)
-        
-        out = io.BytesIO()
-        writer.write(out)
-        return Response(content=out.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=redacted.pdf"})
+        import fitz
+
+        if not text_to_redact.strip():
+            raise HTTPException(400, "Enter text to redact")
+        document = fitz.open(stream=await file.read(), filetype="pdf")
+        matches = 0
+        for page in document:
+            rectangles = page.search_for(text_to_redact)
+            matches += len(rectangles)
+            for rectangle in rectangles:
+                page.add_redact_annot(rectangle, fill=(0, 0, 0))
+            if rectangles:
+                page.apply_redactions()
+        if matches == 0:
+            document.close()
+            raise HTTPException(422, "The requested text was not found")
+        output = document.tobytes(garbage=4, deflate=True)
+        document.close()
+        return Response(content=output, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=redacted.pdf", "X-Redactions-Applied": str(matches)})
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"Redaction failed: {str(e)}")
 
@@ -622,33 +641,19 @@ async def ocr_pdf(file: UploadFile = File(...)):
     try:
         import pytesseract
         from pdf2image import convert_from_bytes
-        from reportlab.lib.pagesizes import letter
-        
-        # Convert PDF to images
+
         pdf_bytes = await file.read()
-        images = convert_from_bytes(pdf_bytes)
-        
-        # Create new PDF with OCR text
-        pdf_buffer = io.BytesIO()
-        c = canvas.Canvas(pdf_buffer, pagesize=letter)
-        
+        images = convert_from_bytes(pdf_bytes, dpi=200)
+        writer = PdfWriter()
         for img in images:
-            # Perform OCR
-            text = pytesseract.image_to_string(img)
-            
-            # Add text to PDF (simplified - real OCR PDF embeds invisible text)
-            c.setFont("Helvetica", 10)
-            y = 750
-            for line in text.split('\n'):
-                if line.strip():
-                    c.drawString(50, y, line[:100])  # Limit line length
-                    y -= 15
-                    if y < 50:
-                        break
-            c.showPage()
-        
-        c.save()
-        return Response(content=pdf_buffer.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=ocr_result.pdf"})
+            # Tesseract emits the original page image plus an invisible searchable text layer.
+            page_pdf = pytesseract.image_to_pdf_or_hocr(img, extension="pdf")
+            page_reader = PdfReader(io.BytesIO(page_pdf))
+            writer.add_page(page_reader.pages[0])
+            img.close()
+        output = io.BytesIO()
+        writer.write(output)
+        return Response(content=output.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=ocr_result.pdf"})
     except ImportError:
         raise HTTPException(500, "OCR libraries not installed. Run: pip install pytesseract pdf2image")
     except Exception as e:
@@ -658,38 +663,31 @@ async def ocr_pdf(file: UploadFile = File(...)):
 async def compare_pdf(file1: UploadFile = File(...), file2: UploadFile = File(...)):
     """Compare two PDFs and highlight differences"""
     try:
-        reader1 = PdfReader(io.BytesIO(await file1.read()))
-        reader2 = PdfReader(io.BytesIO(await file2.read()))
-        
-        # Create comparison report
-        pdf_buffer = io.BytesIO()
-        c = canvas.Canvas(pdf_buffer, pagesize=letter)
-        
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(100, 750, "PDF Comparison Report")
-        
-        c.setFont("Helvetica", 12)
-        c.drawString(100, 720, f"File 1: {file1.filename} - {len(reader1.pages)} pages")
-        c.drawString(100, 700, f"File 2: {file2.filename} - {len(reader2.pages)} pages")
-        
-        y = 670
-        for i in range(min(len(reader1.pages), len(reader2.pages))):
-            text1 = reader1.pages[i].extract_text()
-            text2 = reader2.pages[i].extract_text()
-            
-            if text1 != text2:
-                c.drawString(100, y, f"Page {i+1}: DIFFERENT")
-                y -= 20
-            else:
-                c.drawString(100, y, f"Page {i+1}: Same")
-                y -= 20
-            
-            if y < 100:
-                c.showPage()
-                y = 750
-        
-        c.save()
-        return Response(content=pdf_buffer.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=comparison.pdf"})
+        import fitz
+        from PIL import ImageChops, ImageEnhance
+
+        left = fitz.open(stream=await file1.read(), filetype="pdf")
+        right = fitz.open(stream=await file2.read(), filetype="pdf")
+        page_count = max(len(left), len(right))
+        output_images = []
+        for index in range(page_count):
+            left_image = Image.open(io.BytesIO(left[index].get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False).tobytes("png"))).convert("RGB") if index < len(left) else None
+            right_image = Image.open(io.BytesIO(right[index].get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False).tobytes("png"))).convert("RGB") if index < len(right) else None
+            size = left_image.size if left_image else right_image.size
+            if left_image is None: left_image = Image.new("RGB", size, "white")
+            if right_image is None: right_image = Image.new("RGB", size, "white")
+            if right_image.size != size: right_image = right_image.resize(size)
+            difference = ImageChops.difference(left_image, right_image).convert("L")
+            difference = difference.point(lambda value: 255 if value > 18 else 0)
+            overlay = Image.new("RGB", size, (255, 42, 72))
+            highlighted = Image.blend(right_image, ImageEnhance.Brightness(right_image).enhance(0.82), 0.18)
+            highlighted.paste(overlay, mask=difference)
+            output_images.append(highlighted)
+        left.close(); right.close()
+        output = io.BytesIO()
+        output_images[0].save(output, format="PDF", save_all=True, append_images=output_images[1:], resolution=110)
+        for image in output_images: image.close()
+        return Response(content=output.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=comparison.pdf"})
     except Exception as e:
         raise HTTPException(500, f"Comparison failed: {str(e)}")
 
@@ -834,9 +832,11 @@ async def video_to_gif(file: UploadFile = File(...), start_time: int = Form(0), 
         t.write(await file.read())
         tname = t.name
     try:
-        clip = VideoFileClip(tname).subclip(start_time, end_time)
-        clip.write_gif(tname+".gif", fps=10, program='ffmpeg', logger=None)
+        source_clip = VideoFileClip(tname)
+        clip = source_clip.subclipped(start_time, min(end_time, source_clip.duration))
+        clip.write_gif(tname+".gif", fps=10, logger=None)
         clip.close()
+        source_clip.close()
         with open(tname+".gif", "rb") as f:
             return Response(content=f.read(), media_type="image/gif", headers={"Content-Disposition": "attachment; filename=clip.gif"})
     finally:

@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     pkg-config \
     libcairo2-dev \
+    libreoffice-impress \
+    libreoffice-writer \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
