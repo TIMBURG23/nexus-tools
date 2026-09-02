@@ -34,7 +34,50 @@ interface Toast {
 export default function MultiTool() {
   const [activeTool, setActiveTool] = useState<ToolMode>('img-to-pdf');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const navGroups: { title: string; icon: string; tools: { mode: ToolMode; label: string; icon: string }[] }[] = [
+    { title: 'PDF essentials', icon: '◫', tools: [
+      { mode: 'pdf-merger', label: 'Merge PDF', icon: '⊕' }, { mode: 'pdf-splitter', label: 'Split PDF', icon: '✂' },
+      { mode: 'compress-pdf', label: 'Compress PDF', icon: '⇣' }, { mode: 'pdf-rotator', label: 'Rotate pages', icon: '↻' },
+      { mode: 'organize-pdf', label: 'Organize pages', icon: '▦' },
+    ]},
+    { title: 'Convert', icon: '⇄', tools: [
+      { mode: 'pdf-to-word', label: 'PDF to Word', icon: 'W' }, { mode: 'pdf-to-ppt', label: 'PDF to PowerPoint', icon: 'P' },
+      { mode: 'pdf-to-excel', label: 'PDF to Excel', icon: 'X' }, { mode: 'pdf-to-jpg', label: 'PDF to image', icon: 'J' },
+      { mode: 'word-to-pdf', label: 'Word to PDF', icon: 'W' }, { mode: 'ppt-to-pdf', label: 'PowerPoint to PDF', icon: 'P' },
+      { mode: 'excel-to-pdf', label: 'Excel to PDF', icon: 'X' }, { mode: 'img-to-pdf', label: 'Images to PDF', icon: 'I' },
+      { mode: 'html-to-pdf', label: 'Webpage to PDF', icon: 'H' },
+    ]},
+    { title: 'Protect & review', icon: '◇', tools: [
+      { mode: 'lock-pdf', label: 'Protect PDF', icon: '●' }, { mode: 'unlock-pdf', label: 'Unlock PDF', icon: '○' },
+      { mode: 'watermark', label: 'Watermark', icon: 'W' }, { mode: 'redact-pdf', label: 'Redact', icon: 'R' },
+      { mode: 'compare-pdf', label: 'Compare PDFs', icon: '≠' }, { mode: 'pdf-meta', label: 'Edit metadata', icon: 'i' },
+    ]},
+    { title: 'Advanced PDF', icon: '⌁', tools: [
+      { mode: 'page-numbers', label: 'Page numbers', icon: '#' }, { mode: 'ocr-pdf', label: 'OCR document', icon: 'O' },
+      { mode: 'crop-pdf', label: 'Crop pages', icon: '⌗' }, { mode: 'repair-pdf', label: 'Repair PDF', icon: '+' },
+      { mode: 'pdf-text', label: 'Extract text', icon: 'T' },
+    ]},
+    { title: 'Images & media', icon: '◉', tools: [
+      { mode: 'transcoder', label: 'Convert image', icon: 'I' }, { mode: 'resizer', label: 'Resize image', icon: '↔' },
+      { mode: 'metadata-wiper', label: 'Remove EXIF', icon: '×' }, { mode: 'extract-audio', label: 'Extract audio', icon: 'A' },
+      { mode: 'video-to-gif', label: 'Video to GIF', icon: 'G' },
+    ]},
+    { title: 'Documents & data', icon: '▤', tools: [
+      { mode: 'csv-excel', label: 'Spreadsheet converter', icon: 'S' }, { mode: 'zip-creator', label: 'Create ZIP', icon: 'Z' },
+      { mode: 'docx-to-pdf', label: 'DOCX to PDF', icon: 'D' }, { mode: 'md-to-pdf', label: 'Markdown to PDF', icon: 'M' },
+    ]},
+  ];
+
+  const visibleGroups = navGroups.map(group => ({
+    ...group,
+    tools: group.tools.filter(tool => tool.label.toLowerCase().includes(query.toLowerCase())),
+  })).filter(group => group.tools.length > 0);
+
+  const activeLabel = navGroups.flatMap(group => group.tools).find(tool => tool.mode === activeTool)?.label ?? 'Nexus Tools';
 
   const showToast = (message: string, type: ToastType = 'info') => {
     const id = Date.now();
@@ -44,13 +87,13 @@ export default function MultiTool() {
     }, 4000);
   };
 
+  const navigate = (mode: ToolMode) => {
+    setActiveTool(mode);
+    setMobileNavOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 text-white flex font-sans relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
+    <div className="app-shell">
 
       {/* Toast Notifications */}
       <AnimatePresence>
@@ -80,105 +123,73 @@ export default function MultiTool() {
         ))}
       </AnimatePresence>
 
-      {/* SIDEBAR */}
       <motion.aside 
-        animate={{ width: sidebarCollapsed ? 80 : 320 }}
-        className="relative border-r border-white/10 bg-black/20 backdrop-blur-xl flex flex-col overflow-hidden z-10"
+        animate={{ width: sidebarCollapsed ? 84 : 292 }}
+        className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`}
       >
-        <div className="p-6 border-b border-white/10">
+        <div className="brand-block">
           <motion.div 
             animate={{ scale: sidebarCollapsed ? 0.8 : 1 }}
-            className="flex items-center gap-3"
+            className="brand-row"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <div className="brand-mark">
+              <svg viewBox="0 0 28 28" aria-hidden="true">
+                <path d="M5 7.5h8.5L9.7 14H23l-9 8v-6.5H5l5-8Z" fill="currentColor" />
               </svg>
             </div>
             {!sidebarCollapsed && (
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  NexusTools
-                </h1>
-                <p className="text-xs text-slate-400">Pro Edition</p>
+                <h1>Nexus</h1>
+                <p>File workspace</p>
               </div>
             )}
           </motion.div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
-          <NavGroup title="PDF Core" icon="📄" collapsed={sidebarCollapsed}>
-            <NavButton label="Merge PDF" icon="🔗" active={activeTool === 'pdf-merger'} onClick={() => setActiveTool('pdf-merger')} collapsed={sidebarCollapsed} />
-            <NavButton label="Split PDF" icon="✂️" active={activeTool === 'pdf-splitter'} onClick={() => setActiveTool('pdf-splitter')} collapsed={sidebarCollapsed} />
-            <NavButton label="Compress" icon="📦" active={activeTool === 'compress-pdf'} onClick={() => setActiveTool('compress-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Rotate" icon="🔄" active={activeTool === 'pdf-rotator'} onClick={() => setActiveTool('pdf-rotator')} collapsed={sidebarCollapsed} />
-            <NavButton label="Organize" icon="📋" active={activeTool === 'organize-pdf'} onClick={() => setActiveTool('organize-pdf')} collapsed={sidebarCollapsed} />
-          </NavGroup>
+        {!sidebarCollapsed && (
+          <div className="nav-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Find a tool" aria-label="Find a tool" />
+            <kbd>/</kbd>
+          </div>
+        )}
 
-          <NavGroup title="Convert from PDF" icon="📤" collapsed={sidebarCollapsed}>
-            <NavButton label="To Word" icon="📝" active={activeTool === 'pdf-to-word'} onClick={() => setActiveTool('pdf-to-word')} collapsed={sidebarCollapsed} />
-            <NavButton label="To PPT" icon="📊" active={activeTool === 'pdf-to-ppt'} onClick={() => setActiveTool('pdf-to-ppt')} collapsed={sidebarCollapsed} />
-            <NavButton label="To Excel" icon="📈" active={activeTool === 'pdf-to-excel'} onClick={() => setActiveTool('pdf-to-excel')} collapsed={sidebarCollapsed} />
-            <NavButton label="To JPG" icon="🖼️" active={activeTool === 'pdf-to-jpg'} onClick={() => setActiveTool('pdf-to-jpg')} collapsed={sidebarCollapsed} />
-          </NavGroup>
-
-          <NavGroup title="Convert to PDF" icon="📥" collapsed={sidebarCollapsed}>
-            <NavButton label="Word" icon="📝" active={activeTool === 'word-to-pdf'} onClick={() => setActiveTool('word-to-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="PPT" icon="📊" active={activeTool === 'ppt-to-pdf'} onClick={() => setActiveTool('ppt-to-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Excel" icon="📈" active={activeTool === 'excel-to-pdf'} onClick={() => setActiveTool('excel-to-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Image" icon="🖼️" active={activeTool === 'img-to-pdf'} onClick={() => setActiveTool('img-to-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="HTML" icon="🌐" active={activeTool === 'html-to-pdf'} onClick={() => setActiveTool('html-to-pdf')} collapsed={sidebarCollapsed} />
-          </NavGroup>
-
-          <NavGroup title="Security" icon="🔒" collapsed={sidebarCollapsed}>
-            <NavButton label="Lock" icon="🔐" active={activeTool === 'lock-pdf'} onClick={() => setActiveTool('lock-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Unlock" icon="🔓" active={activeTool === 'unlock-pdf'} onClick={() => setActiveTool('unlock-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Watermark" icon="💧" active={activeTool === 'watermark'} onClick={() => setActiveTool('watermark')} collapsed={sidebarCollapsed} />
-            <NavButton label="Redact" icon="🖍️" active={activeTool === 'redact-pdf'} onClick={() => setActiveTool('redact-pdf')} collapsed={sidebarCollapsed} />
-          </NavGroup>
-
-          <NavGroup title="Advanced" icon="⚡" collapsed={sidebarCollapsed}>
-            <NavButton label="Page #" icon="🔢" active={activeTool === 'page-numbers'} onClick={() => setActiveTool('page-numbers')} collapsed={sidebarCollapsed} />
-            <NavButton label="OCR" icon="👁️" active={activeTool === 'ocr-pdf'} onClick={() => setActiveTool('ocr-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Compare" icon="⚖️" active={activeTool === 'compare-pdf'} onClick={() => setActiveTool('compare-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Crop" icon="✂️" active={activeTool === 'crop-pdf'} onClick={() => setActiveTool('crop-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Repair" icon="🔧" active={activeTool === 'repair-pdf'} onClick={() => setActiveTool('repair-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="Extract Text" icon="📑" active={activeTool === 'pdf-text'} onClick={() => setActiveTool('pdf-text')} collapsed={sidebarCollapsed} />
-            <NavButton label="Metadata" icon="🏷️" active={activeTool === 'pdf-meta'} onClick={() => setActiveTool('pdf-meta')} collapsed={sidebarCollapsed} />
-          </NavGroup>
-
-          <NavGroup title="Images" icon="🎨" collapsed={sidebarCollapsed}>
-            <NavButton label="Convert" icon="🔄" active={activeTool === 'transcoder'} onClick={() => setActiveTool('transcoder')} collapsed={sidebarCollapsed} />
-            <NavButton label="Resize" icon="📐" active={activeTool === 'resizer'} onClick={() => setActiveTool('resizer')} collapsed={sidebarCollapsed} />
-            <NavButton label="Clean EXIF" icon="🧹" active={activeTool === 'metadata-wiper'} onClick={() => setActiveTool('metadata-wiper')} collapsed={sidebarCollapsed} />
-          </NavGroup>
-
-          <NavGroup title="Media" icon="🎬" collapsed={sidebarCollapsed}>
-            <NavButton label="Video → Audio" icon="🎵" active={activeTool === 'extract-audio'} onClick={() => setActiveTool('extract-audio')} collapsed={sidebarCollapsed} />
-            <NavButton label="Video → GIF" icon="🎞️" active={activeTool === 'video-to-gif'} onClick={() => setActiveTool('video-to-gif')} collapsed={sidebarCollapsed} />
-          </NavGroup>
-
-          <NavGroup title="More Tools" icon="🛠️" collapsed={sidebarCollapsed}>
-            <NavButton label="Spreadsheet" icon="📊" active={activeTool === 'csv-excel'} onClick={() => setActiveTool('csv-excel')} collapsed={sidebarCollapsed} />
-            <NavButton label="Zip" icon="📦" active={activeTool === 'zip-creator'} onClick={() => setActiveTool('zip-creator')} collapsed={sidebarCollapsed} />
-            <NavButton label="DOCX→PDF" icon="📄" active={activeTool === 'docx-to-pdf'} onClick={() => setActiveTool('docx-to-pdf')} collapsed={sidebarCollapsed} />
-            <NavButton label="MD→PDF" icon="📝" active={activeTool === 'md-to-pdf'} onClick={() => setActiveTool('md-to-pdf')} collapsed={sidebarCollapsed} />
-          </NavGroup>
+        <div className="nav-scroll">
+          {visibleGroups.map(group => (
+            <NavGroup key={group.title} title={group.title} icon={group.icon} collapsed={sidebarCollapsed}>
+              {group.tools.map(tool => (
+                <NavButton key={tool.mode} label={tool.label} icon={tool.icon} active={activeTool === tool.mode} onClick={() => navigate(tool.mode)} collapsed={sidebarCollapsed} />
+              ))}
+            </NavGroup>
+          ))}
+          {!sidebarCollapsed && visibleGroups.length === 0 && <p className="no-results">No tools match “{query}”.</p>}
         </div>
 
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="p-4 border-t border-white/10 hover:bg-white/5 transition-colors"
+          className="collapse-button"
+          aria-label={sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
         >
-          <svg className={`w-6 h-6 mx-auto transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={sidebarCollapsed ? 'rotate-180' : ''} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
+          {!sidebarCollapsed && <span>Collapse</span>}
         </button>
       </motion.aside>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 relative z-10 overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-8">
+      {mobileNavOpen && <button className="nav-backdrop" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" />}
+
+      <main className="workspace">
+        <header className="topbar">
+          <div className="topbar-title">
+            <button className="menu-button" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation">
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+            </button>
+            <div><span>Workspace</span><strong>{activeLabel}</strong></div>
+          </div>
+          <div className="privacy-chip"><span /> Files are processed securely</div>
+        </header>
+        <div className="workspace-content">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTool}
@@ -231,19 +242,19 @@ export default function MultiTool() {
 
 // --- NAVIGATION COMPONENTS ---
 const NavGroup = ({ title, icon, children, collapsed }: any) => (
-  <div className="space-y-2">
+  <div className="nav-group">
     {!collapsed && (
-      <div className="flex items-center gap-2 px-3 mb-3">
-        <span className="text-lg">{icon}</span>
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</h3>
+      <div className="nav-group-title">
+        <span>{icon}</span>
+        <h3>{title}</h3>
       </div>
     )}
     {collapsed && (
-      <div className="flex justify-center mb-3">
-        <span className="text-xl">{icon}</span>
+      <div className="nav-group-collapsed">
+        <span>{icon}</span>
       </div>
     )}
-    <div className="space-y-1">{children}</div>
+    <div className="nav-group-links">{children}</div>
   </div>
 );
 
@@ -252,21 +263,11 @@ const NavButton = ({ label, icon, active, onClick, collapsed }: any) => (
     onClick={onClick}
     whileHover={{ scale: 1.02 }}
     whileTap={{ scale: 0.98 }}
-    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all relative overflow-hidden group ${
-      active 
-        ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-500/50 shadow-lg shadow-blue-500/20' 
-        : 'text-slate-300 hover:bg-white/5 hover:text-white border border-transparent'
-    }`}
+    className={`nav-button ${active ? 'nav-button-active' : ''}`}
+    title={collapsed ? label : undefined}
   >
-    {active && (
-      <motion.div
-        layoutId="activeNav"
-        className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10"
-        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-      />
-    )}
-    <div className="relative flex items-center gap-3">
-      <span className="text-lg">{icon}</span>
+    <div className="nav-button-inner">
+      <span className="nav-icon">{icon}</span>
       {!collapsed && <span>{label}</span>}
     </div>
   </motion.button>
